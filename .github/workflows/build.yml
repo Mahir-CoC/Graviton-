@@ -82,7 +82,6 @@ jobs:
             -O ndk.zip
           unzip -q ndk.zip
           rm ndk.zip
-          ls $HOME/.buildozer/android/platform/
 
       - name: Build APK
         run: |
@@ -93,7 +92,7 @@ jobs:
       - name: Show errors
         if: always()
         run: |
-          grep -i "error\|exception\|failed\|traceback" build_log.txt | tail -50 || true
+          grep -i "error\|exception\|failed\|traceback" build_log.txt | tail -30 || true
 
       - name: Find APK
         run: find . -name "*.apk" 2>/dev/null || echo "Aucun APK"
