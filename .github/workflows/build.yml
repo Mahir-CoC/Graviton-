@@ -112,7 +112,13 @@ jobs:
       # ── 7. Build ─────────────────────────────────────────────
       - name: Build APK
         run: |
-          buildozer android debug 2>&1
+          buildozer android debug 2>&1 | tee build_log.txt
+          grep -i "error\|exception\|failed\|traceback" build_log.txt | tail -30 || true
+
+      - name: Show errors
+        if: always()
+        run: |
+          grep -i "error\|exception\|failed\|traceback" build_log.txt | tail -50 || true
         env:
           JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
