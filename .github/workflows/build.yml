@@ -12,23 +12,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ── 1. Java 17 AVANT tout le reste ──────────────────────
       - name: Install Java 17
         run: |
           sudo apt-get update
           sudo apt-get install -y openjdk-17-jdk
           sudo update-alternatives --set java \
             /usr/lib/jvm/java-17-openjdk-amd64/bin/java
-          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
           echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
           java -version
 
-      # ── 2. Python 3.10 (compatible avec kivy 2.3.0) ─────────
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      # ── 3. Dépendances système ───────────────────────────────
       - name: Install system dependencies
         run: |
           sudo apt-get install -y \
@@ -46,89 +42,62 @@ jobs:
             build-essential \
             wget
 
-      # ── 4. Buildozer + Cython ────────────────────────────────
       - name: Install buildozer and cython
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0
           pip install cython==0.29.36
 
-      # ── 5. Android SDK (version exacte qui marche avec Java 17)
       - name: Install Android SDK
         run: |
           mkdir -p $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
-
-          # Version exacte du SDK cmdline-tools compatible Java 17
           wget -q \
             "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip" \
             -O /tmp/cmdtools.zip
-
           unzip -q /tmp/cmdtools.zip -d /tmp/ct
           mv /tmp/ct/cmdline-tools \
              $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest
-
-          # sdkmanager doit être trouvable dans tools/bin (buildozer l'y cherche)
           mkdir -p $HOME/.buildozer/android/platform/android-sdk/tools/bin
           ln -sf \
             $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager \
             $HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
-
-          # Licences
           mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
-          printf "24333f8a63b6825ea9c5514f83c2829b004d1fee\n" \
-            >> $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          printf "d56f5187479451eabf01fb78af6dfcb131a6481e\n" \
-            >> $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          printf "8933bad161af4178b1185d1a37fbf41ea5269c55\n" \
-            >> $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+          printf "24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e\n8933bad161af4178b1185d1a37fbf41ea5269c55\n" \
+            > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
           printf "84831b9409646a918e30573bab4c9c91346d8abd\n" \
-            >> $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
-
-          # Installer platform-tools et build-tools
-          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
           $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager \
             --sdk_root=$HOME/.buildozer/android/platform/android-sdk \
             "platform-tools" \
-            "platforms;android-31" \
-            "build-tools;31.0.0" 2>&1 || true
-
+            "platforms;android-33" \
+            "build-tools;33.0.2" 2>&1 || true
         env:
           JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
-      # ── 6. NDK r23b (compatible avec kivy 2.3.0) ────────────
-      - name: Install Android NDK r23b
+      - name: Install Android NDK r25b
         run: |
           cd $HOME/.buildozer/android/platform
-
           wget -q \
-            "https://dl.google.com/android/repository/android-ndk-r23b-linux.zip" \
+            "https://dl.google.com/android/repository/android-ndk-r25b-linux.zip" \
             -O ndk.zip
-
           unzip -q ndk.zip
           rm ndk.zip
-
           ls $HOME/.buildozer/android/platform/
 
-      # ── 7. Build ─────────────────────────────────────────────
       - name: Build APK
         run: |
           buildozer android debug 2>&1 | tee build_log.txt
-          grep -i "error\|exception\|failed\|traceback" build_log.txt | tail -30 || true
+        env:
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
       - name: Show errors
         if: always()
         run: |
           grep -i "error\|exception\|failed\|traceback" build_log.txt | tail -50 || true
-        env:
-          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
-      # ── 8. Chercher l'APK ────────────────────────────────────
       - name: Find APK
-        run: |
-          echo "=== APK ==="
-          find . -name "*.apk" 2>/dev/null || echo "Aucun APK trouve"
+        run: find . -name "*.apk" 2>/dev/null || echo "Aucun APK"
 
-      # ── 9. Upload ────────────────────────────────────────────
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
